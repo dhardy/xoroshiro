@@ -1,4 +1,4 @@
-use rand::{Rng, SeedableRng, Rand};
+use rand_core::{Rng, SeedFromRng, SeedableRng, Error};
 use byteorder::{LittleEndian, ByteOrder};
 
 use super::SplitMix64;
@@ -107,18 +107,14 @@ impl Rng for XorShift1024 {
             }
         }
     }
+    
+    #[inline]
+    fn try_fill(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        Ok(self.fill_bytes(dest))
+    }
 }
 
 impl SeedableRng<[u64; 16]> for XorShift1024 {
-    /// Reseed an `XorShift1024`.  This will panic if `seed` is entirely 0.
-    fn reseed(&mut self, seed: [u64; 16]) {
-        assert!(!seed.iter().all(|&x| x == 0),
-            "XoroShiftRng1024.reseed called with an all zero seed.");
-
-        self.s = seed;
-        self.p = 0;
-    }
-
     /// Create a new `XorShift1024`.  This will panic if `seed` is entirely 0.
     fn from_seed(seed: [u64; 16]) -> XorShift1024 {
         assert!(!seed.iter().all(|&x| x == 0),
@@ -132,21 +128,20 @@ impl SeedableRng<[u64; 16]> for XorShift1024 {
 }
 
 /// Use a RNG to generate a valid (non-zero) xorshift1024 seed.
-fn generate_seed_1024<R: Rng>(rng: &mut R) -> [u64; 16] {
-    let mut s: [u64; 16] = rng.gen();
-    while s.iter().all(|&x| x == 0) {
-        s = rng.gen();
+fn generate_seed_1024<R: Rng>(mut rng: R) -> [u64; 16] {
+    let mut s: [u64; 16];
+    loop {
+        s = [rng.next_u64(), rng.next_u64(), rng.next_u64(), rng.next_u64(),
+            rng.next_u64(), rng.next_u64(), rng.next_u64(), rng.next_u64(),
+            rng.next_u64(), rng.next_u64(), rng.next_u64(), rng.next_u64(),
+            rng.next_u64(), rng.next_u64(), rng.next_u64(), rng.next_u64()];
+        if s.iter().any(|&x| x != 0) {
+            return s;
+        }
     }
-    s
 }
 
 impl SeedableRng<u64> for XorShift1024 {
-    /// Reseed an `XorShift1024`.  This will use `SplitMix64` to fill the seed.
-    fn reseed(&mut self, seed: u64) {
-        let mut rng = SplitMix64::from_seed(seed);
-        self.reseed(generate_seed_1024(&mut rng));
-    }
-
     /// Create a new `XorShift1024`.  This will use `SplitMix64` to fill the seed.
     fn from_seed(seed: u64) -> XorShift1024 {
         let mut rng = SplitMix64::from_seed(seed);
@@ -154,8 +149,8 @@ impl SeedableRng<u64> for XorShift1024 {
     }
 }
 
-impl Rand for XorShift1024 {
-    fn rand<R: Rng>(rng: &mut R) -> XorShift1024 {
-        XorShift1024::from_seed(generate_seed_1024(rng))
+impl SeedFromRng for XorShift1024 {
+    fn from_rng<R: Rng>(rng: R) -> Result<Self, Error> {
+        Ok(XorShift1024::from_seed(generate_seed_1024(rng)))
     }
 }

@@ -1,4 +1,4 @@
-use rand::{Rng, SeedableRng, Rand};
+use rand_core::{Rng, SeedFromRng, SeedableRng, Error};
 use byteorder::{LittleEndian, ByteOrder};
 
 /// A splitmix random number generator.
@@ -63,14 +63,14 @@ impl Rng for SplitMix64 {
             }
         }
     }
+    
+    #[inline]
+    fn try_fill(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        Ok(self.fill_bytes(dest))
+    }
 }
 
 impl SeedableRng<u64> for SplitMix64 {
-    /// Reseed a `SplitMix64`.
-    fn reseed(&mut self, seed: u64) {
-        self.x = seed;
-    }
-
     /// Create a new `SplitMix64`.
     fn from_seed(seed: u64) -> SplitMix64 {
         SplitMix64 {
@@ -79,10 +79,10 @@ impl SeedableRng<u64> for SplitMix64 {
     }
 }
 
-impl Rand for SplitMix64 {
-    fn rand<R: Rng>(rng: &mut R) -> SplitMix64 {
-        SplitMix64 {
-            x: rng.gen(),
-        }
+impl SeedFromRng for SplitMix64 {
+    fn from_rng<R: Rng>(mut rng: R) -> Result<Self, Error> {
+        Ok(SplitMix64 {
+            x: rng.next_u64(),
+        })
     }
 }

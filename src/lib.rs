@@ -6,7 +6,7 @@
 //! appropriate. `SplitMix64` is only used to initialize the other generators,
 //! it should not be used directly.
 
-extern crate rand;
+extern crate rand_core;
 extern crate byteorder;
 
 /// Pseudo-random number generators.
